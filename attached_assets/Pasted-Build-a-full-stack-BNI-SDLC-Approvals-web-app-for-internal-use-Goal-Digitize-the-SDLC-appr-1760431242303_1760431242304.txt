@@ -1,0 +1,148 @@
+Build a full-stack “BNI SDLC Approvals” web app for internal use.
+
+## Goal
+Digitize the SDLC approval flow for documents (FS, BRD, Project Charter, ARF Form, FSD) with e-signature via Docuseal. Support multi-approver (parallel or sequential), versioning, audit trails, and project lifecycle (Kick Off → ARF → RCB/Deployment → PTR → Go Live). Persist signed PDFs and expose read-only views.
+
+## Tech Stack (preferred)
+- Frontend: Next.js 14 (App Router) + TypeScript + TailwindCSS + shadcn/ui + React Hook Form + Zod.
+- Backend: Next.js server actions or NestJS (if you prefer) with TypeScript.
+- DB: PostgreSQL + Prisma ORM (include migrations).
+- Queue/async: BullMQ + Redis for webhook processing & email notifications.
+- File/PDF: Upload to object storage (S3-compatible) with presigned URLs; preview via pdf.js.
+- Auth: OIDC/SAML ready; for MVP use NextAuth with Email/Password (hashed bcrypt) + optional AzureAD/Google OIDC.
+- Secrets/config: .env (12-factor). DO NOT hardcode API keys.
+
+## Branding
+- Use the provided BNI logo as `/public/bni-logo.png` (place top-left in the header and on the login page). 
+- Extract a palette from the logo (teal + orange) into CSS variables: `--brand-teal`, `--brand-orange`, `--brand-dark`.
+- Create a clean internal dashboard look (cards, timeline, stepper).
+APP_URL=<http(s)://…>
+DATABASE_URL=postgresql://…
+REDIS_URL=redis://…
+STORAGE_BUCKET=…
+STORAGE_REGION=…
+STORAGE_ACCESS_KEY=…
+STORAGE_SECRET_KEY=…
+
+DOCUSEAL_API_BASE=https://api.docuseal.co
+
+DOCUSEAL_API_KEY=8pZwATS6k1sHQL5tWqkexWjkTUrpj6tEWeM62umbXPC
+DOCUSEAL_WEBHOOK_SECRET=<generated>
+SMTP_HOST=…
+SMTP_USER=…
+SMTP_PASS=…
+Use `Authorization: Bearer ${DOCUSEAL_API_KEY}` in backend only.
+
+## User Roles & Permissions
+- **Requester** (Business User/SKTI): create initiative, upload documents, view status, respond to comments.
+- **Approver** (per doc type; can be many): sign sequentially (ordered) or in parallel.
+- **IT BP / STA**, **PMO/IFC/ISA/DEV/APS/IFM/CISO**: approver or reviewer depending on doc type.
+- **Admin**: manage users, approver groups, templates, and system settings.
+
+## Core Entities (Prisma models)
+- `User(id, name, email, role, dept)`
+- `Project(id, code, title, type: 'Project'|'Non-Project', category, methodology: 'Waterfall'|'Agile', status, ownerId, createdAt, updatedAt)`
+- `Document(id, projectId, type: 'FS'|'BRD'|'PROJECT_CHARTER'|'ARF'|'FSD', filename, storageKey, version, status: 'DRAFT'|'IN_REVIEW'|'SIGNING'|'SIGNED'|'REJECTED', createdById, createdAt)`
+- `ApprovalRound(id, documentId, mode: 'SEQUENTIAL'|'PARALLEL', orderIndex, status, createdAt)`
+- `Approver(id, roundId, userId, email, orderIndex, mustSign bool, signedAt, status: 'PENDING'|'SIGNED'|'DECLINED')`
+- `SignatureEnvelope(id, documentId, docusealEnvelopeId, docusealUrl, status, createdAt, completedAt)`
+- `Comment(id, documentId, authorId, body, createdAt)`
+- `StatusHistory(id, entityType, entityId, from, to, actorId, at, note)`
+- `WebhookEvent(id, provider:'docuseal', eventType, payloadJson, receivedAt, processedAt, status)`
+- `AuditLog(id, actorId, action, targetType, targetId, metadata, at)`
+
+## Document Types & Triggers
+1) **Feasibility Study (FS)** and **BRD** uploaded at initiative stage.  
+2) If approved → start e-signature session. Approvers can be many, sequential or parallel.  
+3) When all sign → mark doc SIGNED, persist signed PDF, and auto-create `Project` with status `Initiative Approved`.  
+4) When `Project` status changes to `Kick Off` → require **Project Charter** upload + approval flow.  
+5) When `Project` status becomes `ARF` → require **ARF Form** upload + approvals.  
+6) Users can also upload **FSD** later in delivery phase for approvals.  
+Include a project status machine to mirror the SDLC diagram (Demand → Delivery) and IT governance checkpoints (RCB, Deployment, PTR, Go Live) as future statuses (read-only for now, fields exist in schema). The flow must mirror the BNI SDLC illustration the user provided. 
+
+## SDLC States (Project.status)
+`'Initiative Submitted' → 'Demand Prioritized' → 'Initiative Approved' → 'Kick Off' → 'ARF' → 'Deployment Preparation' → 'RCB' → 'Deployment' → 'PTR' → 'Go Live'`
+
+## Docuseal Integration (server-side)
+- Create a small wrapper service `docuseal.ts`:
+  - `createEnvelope({fileUrl|buffer, title, recipients:[{email,name,orderIndex,role:'signer'}], sequential:boolean}) -> {envelopeId, url}`
+  - `getEnvelope(envelopeId)`
+  - `downloadCompletedPdf(envelopeId)`
+  - `voidEnvelope(envelopeId, reason)`
+- Webhooks: expose `POST /api/webhooks/docuseal` validating `DOCUSEAL_WEBHOOK_SECRET`. Handle events:
+  - `envelope.completed`: update `SignatureEnvelope.status='COMPLETED'`, set `Approver.status='SIGNED'` for each signer, store final PDF to object storage, set `Document.status='SIGNED'`, append `StatusHistory`.
+  - `envelope.declined` / `recipient.declined`: mark `REJECTED` and notify requester.
+- Launch signing:
+  - On Document → “Send for Signature”, backend uploads the current document (PDF) to Docuseal, composes recipients using the active `ApprovalRound`, sets sequential mode if `mode='SEQUENTIAL'`.
+  - Store `SignatureEnvelope` and return `signingUrl` (for per-recipient embedded signing if available, else email-based).
+- Download & persist the finalized PDF and certificate when completed.
+
+## API Endpoints (REST)
+- `POST /api/projects` create project (usually auto from signed BRD/FS).
+- `GET /api/projects/:id` read project (with documents, timeline).
+- `PATCH /api/projects/:id/status` guarded transitions only.
+- `POST /api/documents` (multipart) → create new document (type + projectId).
+- `GET /api/documents/:id` → metadata + presigned GET to original/signed PDF.
+- `POST /api/documents/:id/rounds` → configure approval round (mode, approvers).
+- `POST /api/documents/:id/send` → start Docuseal envelope from latest version.
+- `POST /api/documents/:id/versions` → upload new version (resets approvals).
+- `POST /api/documents/:id/comments` → threaded comments.
+- `POST /api/webhooks/docuseal` → webhook receiver.
+- `GET /api/audit` → admin audit logs (filter by project/document/actor).
+
+## UI Pages
+- **Login** with BNI logo, brand colors.
+- **Dashboard**: cards for “My Requests”, “My Approvals”, “Projects”, “Waiting for Signature”.
+- **New Initiative Wizard**: upload FS & BRD (PDF), select Project vs Non-Project, methodology (Agile/Waterfall).
+- **Project Detail**: header (title, owner, status), stepper timeline (Demand → Delivery), tabs:
+  - **Documents**: table grouped by type; each row shows status chip; actions: Upload/Replace, Configure Approvers, Send for Signature, View envelope, Download signed.
+  - **Approvals**: configure sequential/parallel, drag to sort order, optional “approver groups” (e.g., PMO, ISA, DEV).
+  - **Comments**: per document.
+  - **History**: status transitions + audit.
+- **Document Viewer**: left: metadata & approver list (with live status), right: PDF preview.
+- **Admin**: manage users, approver groups, required docs per project status, and email templates.
+
+## Business Rules
+- Only PDF uploads. Max 50MB (configurable).
+- A document can have many versions; only the latest can be sent to sign. Signing locks the version.
+- Approver modes:
+  - **SEQUENTIAL**: enforce `orderIndex` ascending.
+  - **PARALLEL**: all must sign; order ignored.
+- On completed BRD/FS signing: auto-create `Project` if not exists; status → `Initiative Approved`.
+- Status transitions are guarded; e.g., **Project Charter** must be SIGNED before moving from `Kick Off` to `ARF`.
+- Email notifications: on assignment to approve, on decline, on completion.
+
+## Security & Compliance
+- RBAC guard on every endpoint.
+- Store all actions in `AuditLog`.
+- Do not expose `DOCUSEAL_API_KEY` to the client; server-side only.
+- Validate PDFs (MIME sniff + magic number).
+- Webhook signature verification and idempotency key on processing.
+
+## Tests
+- Unit tests for status machine and Docuseal wrapper (mock HTTP).
+- Integration tests covering:
+  1) Requester uploads BRD (v1) → config approvers (sequential) → send → webhook completes → signed PDF stored → project auto-created.
+  2) Project set to Kick Off → upload Project Charter → approvals parallel → completed → status can move to ARF.
+  3) Upload ARF Form at ARF stage → approvals → status moves forward.
+- Cypress e2e: upload, approve, sign (mock provider), view signed.
+
+## Seed Data
+- Demo users (Requester, Approver PMO, ISA, DEV, Admin).
+- One sample project with required docs matrix.
+
+## Deliverables
+- Source code with Prisma migrations.
+- Postman collection (or REST Client `.http` file).
+- `README.md` with setup (env, DB migrate, run, tunnel for webhooks).
+- Diagram: simple Mermaid describing states and Docuseal callbacks.
+- A script to create a Docuseal envelope from a sample PDF for local testing.
+
+## Acceptance Criteria
+- I can upload FS & BRD, configure approvers (sequential/parallel), send for e-signature, and see live signing status.
+- When all signatures complete, I can download the signed PDF and see immutable audit trails.
+- The system auto-creates a Project and enforces required documents per status (Project Charter at Kick Off, ARF at ARF, FSD in delivery).
+- Works with the BNI logo and brand palette; responsive UI.
+- All secrets are read from `.env`; no secrets in client bundles.
+
+## Environment Variables (.env)
