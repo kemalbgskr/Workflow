@@ -8,6 +8,11 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Header from "@/components/Header";
 import Dashboard from "@/pages/Dashboard";
 import ProjectDetail from "@/pages/ProjectDetail";
+import MyProjects from "@/pages/MyProjects";
+import MyApprovals from "@/pages/MyApprovals";
+import Documents from "@/pages/Documents";
+import Users from "@/pages/Users";
+import Settings from "@/pages/Settings";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
@@ -16,7 +21,12 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/" component={Dashboard} />
+      <Route path="/projects" component={MyProjects} />
       <Route path="/projects/:id" component={ProjectDetail} />
+      <Route path="/approvals" component={MyApprovals} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/users" component={Users} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
