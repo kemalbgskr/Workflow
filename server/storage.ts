@@ -938,23 +938,58 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async deleteDocument(id: string): Promise<void> {
+  async deleteDocument(id: string, actorId?: string): Promise<void> {
     const document = await this.getDocumentById(id);
     if (!document) return;
 
-    // Delete physical file only
-    if (document.storageKey && fs.existsSync(document.storageKey)) {
-      fs.unlinkSync(document.storageKey);
-    }
+    try {
+      await db.transaction(async (tx) => {
+        // 1. Delete comments associated with the document
+        await tx.delete(comments).where(eq(comments.documentId, id));
 
-    // Mark document as deleted in database instead of deleting it
-    await db
-      .update(documents)
-      .set({
-        status: "DELETED",
-        filename: `[DELETED] ${document.filename}`,
-      })
-      .where(eq(documents.id, id));
+        // 2. Delete signature envelopes
+        await tx.delete(signatureEnvelopes).where(eq(signatureEnvelopes.documentId, id));
+
+        // 3. Delete approvals (rounds and approvers)
+        // First get rounds to delete approvers
+        const rounds = await tx.select().from(approvalRounds).where(eq(approvalRounds.documentId, id));
+        for (const round of rounds) {
+          await tx.delete(approvers).where(eq(approvers.roundId, round.id));
+        }
+        await tx.delete(approvalRounds).where(eq(approvalRounds.documentId, id));
+
+        // 4. Mark document as deleted in database
+        // We do a soft delete to preserve audit history if needed, or we could hard delete.
+        // Given the user wants to "delete", let's stick to the current soft-delete logic
+        // BUT if the previous implementation was causing issues with "deleted" items reappearing or conflicting,
+        // we might consider hard delete if status='DELETED' is not filtered correctly elsewhere.
+        // However, based on getDocuments logic, it filters status != 'DELETED'.
+        
+        // If file exists, delete it
+        if (document.storageKey && fs.existsSync(document.storageKey)) {
+          try {
+            fs.unlinkSync(document.storageKey);
+          } catch (err) {
+            console.error('Failed to delete physical file:', err);
+            // Continue execution, don't fail transaction just because file is missing/locked
+          }
+        }
+
+        await tx
+          .update(documents)
+          .set({
+            status: "DELETED",
+            filename: `[DELETED] ${document.filename}`,
+            storageKey: `deleted_${document.storageKey}`
+          })
+          .where(eq(documents.id, id));
+          
+        // Optional: Insert audit log for deletion inside the transaction if we want strict audit
+      });
+    } catch (error) {
+      console.error('Error in deleteDocument transaction:', error);
+      throw error; // Propagate error to route handler
+    }
   }
 
   async configureApprovers(

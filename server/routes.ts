@@ -646,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const stats = {
-        myRequests: projects.length,
+        myRequests: projects.filter(p => p.ownerId === userId).length,
         pendingApprovals: approvals.length,
         activeProjects: projects.filter(p => !['Go Live', 'PTR'].includes(p.status)).length,
         completed: projects.filter(p => ['Go Live', 'PTR'].includes(p.status)).length
