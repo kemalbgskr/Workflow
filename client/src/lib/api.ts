@@ -1,3 +1,5 @@
+import type { InsertProject, InsertComment, Project, User, Document, Comment } from "@shared/schema";
+
 const API_BASE = '/api';
 
 class ApiClient {
@@ -24,23 +26,23 @@ class ApiClient {
   }
 
   // Projects
-  async getProjects() {
-    return this.request('/projects');
+  async getProjects(): Promise<Project[]> {
+    return this.request<Project[]>('/projects');
   }
 
-  async getProject(id: string) {
-    return this.request(`/projects/${id}`);
+  async getProject(id: string): Promise<Project> {
+    return this.request<Project>(`/projects/${id}`);
   }
 
-  async createProject(data: any) {
-    return this.request('/projects', {
+  async createProject(data: Omit<InsertProject, "ownerId" | "code">): Promise<Project> {
+    return this.request<Project>('/projects', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateProject(id: string, data: any) {
-    return this.request(`/projects/${id}`, {
+  async updateProject(id: string, data: Partial<InsertProject>): Promise<Project> {
+    return this.request<Project>(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -72,7 +74,6 @@ class ApiClient {
   }
 
   async deleteDocument(id: string) {
-    console.log('API deleteDocument called with ID:', id);
     return this.request(`/documents/${id}`, {
       method: 'DELETE',
     });
@@ -96,8 +97,8 @@ class ApiClient {
   }
 
   // Comments
-  async addComment(documentId: string, data: any) {
-    return this.request(`/documents/${documentId}/comments`, {
+  async addComment(documentId: string, data: Omit<InsertComment, "documentId" | "authorId">): Promise<Comment> {
+    return this.request<Comment>(`/documents/${documentId}/comments`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

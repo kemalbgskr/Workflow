@@ -46,6 +46,8 @@ export default function ProjectDetail() {
   const [showEditProjectDialog, setShowEditProjectDialog] = useState(false);
   const [projectApprovers, setProjectApprovers] = useState<any[]>([]);
   const [pendingStatusRequest, setPendingStatusRequest] = useState(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [auditHistory, setAuditHistory] = useState<any[]>([]);
 
   const statusOptions = [
     "Initiative Submitted", 
@@ -140,7 +142,6 @@ export default function ProjectDetail() {
           if (log.metadata) {
             try {
               metadata = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
-              console.log('Parsed metadata for action', log.action, ':', metadata);
               
               // Format details based on action type
               switch (log.action) {
@@ -208,7 +209,6 @@ export default function ProjectDetail() {
                   break;
                 case 'Comment Added':
                   details = 'Added a comment';
-                  console.log('Comment Added metadata:', metadata);
                   if (metadata.commentPreview) {
                     const preview = metadata.commentPreview.length > 100 ? metadata.commentPreview.substring(0, 100) + '...' : metadata.commentPreview;
                     details += `: "${preview}"`;
@@ -219,7 +219,6 @@ export default function ProjectDetail() {
                   break;
                 case 'Comment Deleted':
                   details = 'Deleted a comment';
-                  console.log('Comment Deleted metadata:', metadata);
                   if (metadata.commentPreview) {
                     const preview = metadata.commentPreview.length > 100 ? metadata.commentPreview.substring(0, 100) + '...' : metadata.commentPreview;
                     details += `: "${preview}"`;
@@ -319,6 +318,44 @@ export default function ProjectDetail() {
     }
   };
   
+  const fetchComments = async () => {
+    if (!params?.id) return;
+    try {
+      const response = await fetch(`/api/projects/${params.id}/comments`);
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          setComments(data);
+        } else {
+          console.error('Response is not JSON:', await response.text());
+          setComments([]);
+        }
+      } else {
+        console.error('Failed to fetch comments:', response.status, response.statusText);
+        setComments([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+      setComments([]);
+    }
+  };
+
+  const fetchProjectApprovers = async () => {
+    if (!params?.id) return;
+    try {
+      const response = await fetch(`/api/projects/${params.id}/approvers`);
+      if (response.ok) {
+        const data = await response.json();
+        setProjectApprovers(data);
+      } else {
+        console.error('Failed to fetch project approvers:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Failed to fetch project approvers:', error);
+    }
+  };
+
   useEffect(() => {
 
     const fetchProject = async () => {
@@ -371,53 +408,14 @@ export default function ProjectDetail() {
     fetchProjectApprovers();
   }, [params?.id]);
 
-  const fetchProjectApprovers = async () => {
-    if (!params?.id) return;
-    try {
-      console.log('Fetching project approvers for project:', params.id);
-      const response = await fetch(`/api/projects/${params.id}/approvers`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Received project approvers:', data);
-        setProjectApprovers(data);
-      } else {
-        console.error('Failed to fetch project approvers:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('Failed to fetch project approvers:', error);
-    }
-  };
+
 
 
 
 
   const mockApprovers = [];
 
-  const [comments, setComments] = useState<any[]>([]);
-  const [auditHistory, setAuditHistory] = useState<any[]>([]);
-  
-  const fetchComments = async () => {
-    if (!params?.id) return;
-    try {
-      const response = await fetch(`/api/projects/${params.id}/comments`);
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          setComments(data);
-        } else {
-          console.error('Response is not JSON:', await response.text());
-          setComments([]);
-        }
-      } else {
-        console.error('Failed to fetch comments:', response.status, response.statusText);
-        setComments([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch comments:', error);
-      setComments([]);
-    }
-  };
+
 
   const handleStepClick = (stepLabel: string) => {
     setSelectedLifecycleStep(stepLabel);
@@ -471,12 +469,9 @@ export default function ProjectDetail() {
           toast({ title: "Access Denied", description: "You don't have permission to delete documents.", variant: "destructive" });
           return;
         }
-        console.log('Delete action in ProjectDetail for:', doc.id, doc.filename);
         if (window.confirm(`Are you sure you want to delete ${doc.filename}?`)) {
-          console.log('User confirmed delete in ProjectDetail');
           fetch(`/api/documents/${doc.id}`, { method: 'DELETE' })
             .then(response => {
-              console.log('Delete response:', response.status);
               if (response.ok) {
                 fetchDocuments();
                 fetchAuditHistory(); // Refresh history to show preserved audit trail

@@ -98,9 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = insertProjectRequestSchema.parse(req.body);
       
-      // Use first user from database for testing
-      const users = await storage.getUsers();
-      const ownerId = users[0]?.id;
+      // Use authenticated user as owner
+      const ownerId = (req.user as any)?.id;
       
       if (!ownerId) {
         return res.status(500).json({ error: "No users found" });
@@ -109,7 +108,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.insertProject({ ...data, ownerId });
       res.status(201).json(project);
     } catch (error: any) {
-      console.error('Error creating project:', error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid data", details: error.errors });
       } else {
@@ -123,32 +121,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Not authenticated" });
     }
     try {
-      console.log('=== PUT /api/projects/:id ===');
-      console.log('Project ID:', req.params.id);
-      console.log('Request body:', JSON.stringify(req.body, null, 2));
-      console.log('User:', req.user ? { id: (req.user as any).id, email: (req.user as any).email } : 'No user');
-      
       const data = insertProjectSchema.partial().parse(req.body);
-      console.log('Parsed data:', JSON.stringify(data, null, 2));
       
       // Get current project to track status change
       const currentProject = await storage.getProjectById(req.params.id);
       if (!currentProject) {
-        console.log('Project not found:', req.params.id);
         return res.status(404).json({ error: "Project not found" });
       }
-      console.log('Current project:', JSON.stringify(currentProject, null, 2));
       
       const project = await storage.updateProject(req.params.id, data);
+      
       if (!project) {
-        console.log('Update failed - project not found after update');
         return res.status(404).json({ error: "Project not found" });
       }
       
       // Log status change if status was updated
       if (data.status && currentProject.status !== data.status) {
         const userId = (req.user as any).id;
-        console.log('Status changed, logging audit:', { from: currentProject.status, to: data.status });
         await storage.insertAuditLog({
           actorId: userId,
           action: "Status Updated",
@@ -158,15 +147,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log('Updated project result:', JSON.stringify(project, null, 2));
-      console.log('=== PUT /api/projects/:id SUCCESS ===');
       res.json(project);
     } catch (error: any) {
-      console.error('=== PUT /api/projects/:id ERROR ===');
-      console.error('Error updating project:', error);
-      console.error('Error stack:', error.stack);
       if (error instanceof z.ZodError) {
-        console.error('Zod validation errors:', error.errors);
         res.status(400).json({ error: "Invalid data", details: error.errors });
       } else {
         res.status(500).json({ error: "Failed to update project", details: error.message });
@@ -212,12 +195,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/projects/:id", async (req, res) => {
     try {
-      console.log('DELETE /api/projects/:id - Project ID:', req.params.id);
       await storage.deleteProject(req.params.id);
-      console.log('Project deleted successfully');
       res.json({ success: true });
     } catch (error: any) {
-      console.error('Error deleting project:', error);
       res.status(500).json({ error: "Failed to delete project" });
     }
   });
