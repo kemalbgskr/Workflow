@@ -19,8 +19,10 @@ import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
 
+import { type User } from "@shared/schema";
+
 function App() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

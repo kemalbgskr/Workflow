@@ -10,15 +10,23 @@ import {
 import { Bell, Search, LogOut } from "lucide-react";
 import BNILogo from "./BNILogo";
 
+import { type User } from "@shared/schema";
+
 interface HeaderProps {
-  user?: {
-    name: string;
-    initials: string;
-  };
+  user?: User | null;
   showSidebarTrigger?: boolean;
 }
 
 export default function Header({ user, showSidebarTrigger = true }: HeaderProps) {
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase()
+    : "UN";
+
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-6 border-b bg-background/95 backdrop-blur">
       <div className="flex items-center gap-4">
@@ -39,7 +47,7 @@ export default function Header({ user, showSidebarTrigger = true }: HeaderProps)
               <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-brand-teal text-white text-xs">
-                    {user.initials}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium">{user.name}</span>
