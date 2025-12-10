@@ -1,0 +1,646 @@
+{
+  "info": {
+    "name": "BNI SDLC Approvals API",
+    "description": "Complete API collection for BNI SDLC Approvals System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bni.co.id\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Get Projects with Owner",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/with-owner",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "with-owner"]
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Digital Banking Enhancement\",\n  \"description\": \"Enhance mobile banking features\",\n  \"type\": \"Project\",\n  \"category\": \"Digital Banking\",\n  \"methodology\": \"Agile\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Project Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Initiative Approved\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId", "status"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId", "history"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Get Documents",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/documents?projectId={{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "lifecycleStep",
+                  "value": "Initiative",
+                  "type": "text"
+                },
+                {
+                  "key": "documentType",
+                  "value": "FS",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", "upload"]
+            }
+          }
+        },
+        {
+          "name": "Get Document by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Configure Document Approvers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvers\": [\"user-id-1\", \"user-id-2\"],\n  \"approvalMode\": \"SEQUENTIAL\",\n  \"useDocuSeal\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/approvers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "approvers"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Document Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "status"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"Approved - looks good\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "approve"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"Needs revision - missing requirements\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "reject"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Document",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/view",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "view"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download Document",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/:documentId/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "documents", ":documentId", "download"],
+              "variable": [
+                {
+                  "key": "documentId",
+                  "value": "{{documentId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Approvals",
+      "item": [
+        {
+          "name": "Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals"]
+            }
+          }
+        },
+        {
+          "name": "Get Completed Approvals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/completed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "completed"]
+            }
+          }
+        },
+        {
+          "name": "Get Status Change Approvals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/status-changes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "status-changes"]
+            }
+          }
+        },
+        {
+          "name": "Approve Status Change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"Approved for next phase\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/approvals/status-changes/:approvalId/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "approvals", "status-changes", ":approvalId", "approve"],
+              "variable": [
+                {
+                  "key": "approvalId",
+                  "value": "{{approvalId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@bni.co.id\",\n  \"password\": \"password123\",\n  \"role\": \"APPROVER\",\n  \"department\": \"IT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe Updated\",\n  \"department\": \"PMO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/users/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Get Project Comments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId", "comments"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Project Comment",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "This is a test comment",
+                  "type": "text"
+                },
+                {
+                  "key": "attachment",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/:projectId/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ":projectId", "comments"],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": "{{projectId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "DocuSeal Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-DocuSeal-Signature",
+                "value": "test-signature"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_type\": \"envelope.completed\",\n  \"data\": {\n    \"id\": \"envelope-id\",\n    \"status\": \"completed\",\n    \"recipients\": [\n      {\n        \"email\": \"test@example.com\",\n        \"status\": \"signed\"\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/docuseal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "docuseal"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Bell, Search, LogOut } from "lucide-react";
 import BNILogo from "./BNILogo";
 
 interface HeaderProps {
@@ -28,14 +34,38 @@ export default function Header({ user, showSidebarTrigger = true }: HeaderProps)
           <Bell className="h-5 w-5" />
         </Button>
         {user && (
-          <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-brand-teal text-white text-xs">
-                {user.initials}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium">{user.name}</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-brand-teal text-white text-xs">
+                    {user.initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{user.name}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/logout', { 
+                      method: 'POST',
+                      credentials: 'include'
+                    });
+                    window.location.href = '/login';
+                  } catch (error) {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login';
+                  }
+                }}
+                className="text-red-500 focus:text-red-500 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </header>

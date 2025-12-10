@@ -1,21 +1,30 @@
+import { cn } from "@/lib/utils";
+
 interface BNILogoProps {
-  className?: string;
   size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
-export default function BNILogo({ className = "", size = "md" }: BNILogoProps) {
+export default function BNILogo({ size = "md", className }: BNILogoProps) {
   const sizeClasses = {
-    sm: "h-6",
-    md: "h-8",
-    lg: "h-12"
+    sm: "h-8 w-auto",
+    md: "h-12 w-auto", 
+    lg: "h-16 w-auto"
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div className={`${sizeClasses[size]} aspect-square bg-brand-teal rounded-md flex items-center justify-center`}>
-        <span className="text-white font-bold text-sm">BNI</span>
-      </div>
-      <span className="font-semibold text-foreground">SDLC Approvals</span>
+    <div className={cn("flex items-center gap-2", className)}>
+      <img 
+        src="/bni-logo.png" 
+        alt="Bank Negara Indonesia" 
+        className={sizeClasses[size]}
+      />
+      {size !== "sm" && (
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-brand-teal">BNI SDLC</span>
+          <span className="text-xs text-muted-foreground">Approvals System</span>
+        </div>
+      )}
     </div>
   );
 }

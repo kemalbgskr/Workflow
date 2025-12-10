@@ -5,8 +5,56 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const { toast } = useToast();
+  const [notifications, setNotifications] = useState({
+    approvals: true,
+    status: true,
+    comments: true,
+    digest: false,
+    twoFactor: false
+  });
+  
+  const handleSaveProfile = () => {
+    toast({
+      title: "Profile Updated",
+      description: "Your profile information has been saved successfully.",
+    });
+  };
+  
+  const handleSaveSystem = () => {
+    toast({
+      title: "System Settings Updated",
+      description: "System configuration has been saved successfully.",
+    });
+  };
+  
+  const handleChangePassword = () => {
+    toast({
+      title: "Password Changed",
+      description: "Your password has been updated successfully.",
+    });
+  };
+  
+  const handleCancel = (section: string) => {
+    toast({
+      title: "Changes Cancelled",
+      description: `${section} changes have been discarded.`,
+      variant: "destructive",
+    });
+  };
+  
+  const handleNotificationToggle = (key: keyof typeof notifications) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+    toast({
+      title: "Notification Setting Updated",
+      description: "Your notification preferences have been saved.",
+    });
+  };
+  
   return (
     <div className="p-8 space-y-6">
       <div>
@@ -45,8 +93,19 @@ export default function Settings() {
                 <Input id="department" defaultValue="IT - PMO" className="mt-1.5" data-testid="input-department" />
               </div>
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" data-testid="button-cancel-profile">Cancel</Button>
-                <Button data-testid="button-save-profile">Save Changes</Button>
+                <Button 
+                  variant="outline" 
+                  data-testid="button-cancel-profile"
+                  onClick={() => handleCancel('Profile')}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  data-testid="button-save-profile"
+                  onClick={handleSaveProfile}
+                >
+                  Save Changes
+                </Button>
               </div>
             </div>
           </Card>
@@ -61,7 +120,11 @@ export default function Settings() {
                   <p className="font-medium">New Approval Requests</p>
                   <p className="text-sm text-muted-foreground">Receive emails when documents need your approval</p>
                 </div>
-                <Switch defaultChecked data-testid="switch-approval-notifications" />
+                <Switch 
+                  checked={notifications.approvals}
+                  onCheckedChange={() => handleNotificationToggle('approvals')}
+                  data-testid="switch-approval-notifications" 
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -69,7 +132,11 @@ export default function Settings() {
                   <p className="font-medium">Document Status Updates</p>
                   <p className="text-sm text-muted-foreground">Get notified when document status changes</p>
                 </div>
-                <Switch defaultChecked data-testid="switch-status-notifications" />
+                <Switch 
+                  checked={notifications.status}
+                  onCheckedChange={() => handleNotificationToggle('status')}
+                  data-testid="switch-status-notifications" 
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -77,7 +144,11 @@ export default function Settings() {
                   <p className="font-medium">Comments & Mentions</p>
                   <p className="text-sm text-muted-foreground">Notifications for comments and mentions</p>
                 </div>
-                <Switch defaultChecked data-testid="switch-comment-notifications" />
+                <Switch 
+                  checked={notifications.comments}
+                  onCheckedChange={() => handleNotificationToggle('comments')}
+                  data-testid="switch-comment-notifications" 
+                />
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -85,7 +156,11 @@ export default function Settings() {
                   <p className="font-medium">Weekly Digest</p>
                   <p className="text-sm text-muted-foreground">Weekly summary of your activities</p>
                 </div>
-                <Switch data-testid="switch-digest-notifications" />
+                <Switch 
+                  checked={notifications.digest}
+                  onCheckedChange={() => handleNotificationToggle('digest')}
+                  data-testid="switch-digest-notifications" 
+                />
               </div>
             </div>
           </Card>
@@ -126,8 +201,19 @@ export default function Settings() {
                 />
               </div>
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" data-testid="button-cancel-system">Cancel</Button>
-                <Button data-testid="button-save-system">Save Changes</Button>
+                <Button 
+                  variant="outline" 
+                  data-testid="button-cancel-system"
+                  onClick={() => handleCancel('System')}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  data-testid="button-save-system"
+                  onClick={handleSaveSystem}
+                >
+                  Save Changes
+                </Button>
               </div>
             </div>
           </Card>
@@ -165,8 +251,19 @@ export default function Settings() {
                 />
               </div>
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" data-testid="button-cancel-password">Cancel</Button>
-                <Button data-testid="button-change-password">Change Password</Button>
+                <Button 
+                  variant="outline" 
+                  data-testid="button-cancel-password"
+                  onClick={() => handleCancel('Password')}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  data-testid="button-change-password"
+                  onClick={handleChangePassword}
+                >
+                  Change Password
+                </Button>
               </div>
             </div>
           </Card>
@@ -178,7 +275,11 @@ export default function Settings() {
                 <p className="font-medium">Enable 2FA</p>
                 <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
               </div>
-              <Switch data-testid="switch-2fa" />
+              <Switch 
+                checked={notifications.twoFactor}
+                onCheckedChange={() => handleNotificationToggle('twoFactor')}
+                data-testid="switch-2fa" 
+              />
             </div>
           </Card>
         </TabsContent>

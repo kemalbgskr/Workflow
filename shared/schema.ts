@@ -1,135 +1,160 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, boolean, uuid, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const userRoleEnum = pgEnum("user_role", ["REQUESTER", "APPROVER", "ADMIN"]);
-export const projectTypeEnum = pgEnum("project_type", ["Project", "Non-Project"]);
-export const methodologyEnum = pgEnum("methodology", ["Waterfall", "Agile"]);
-export const projectStatusEnum = pgEnum("project_status", [
-  "Initiative Submitted",
-  "Demand Prioritized",
-  "Initiative Approved",
-  "Kick Off",
-  "ARF",
-  "Deployment Preparation",
-  "RCB",
-  "Deployment",
-  "PTR",
-  "Go Live"
-]);
-export const documentTypeEnum = pgEnum("document_type", ["FS", "BRD", "PROJECT_CHARTER", "ARF", "FSD"]);
-export const documentStatusEnum = pgEnum("document_status", ["DRAFT", "IN_REVIEW", "SIGNING", "SIGNED", "REJECTED"]);
-export const approvalModeEnum = pgEnum("approval_mode", ["SEQUENTIAL", "PARALLEL"]);
-export const approverStatusEnum = pgEnum("approver_status", ["PENDING", "SIGNED", "DECLINED"]);
-export const envelopeStatusEnum = pgEnum("envelope_status", ["CREATED", "SENT", "COMPLETED", "DECLINED", "VOIDED"]);
-
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: userRoleEnum("role").notNull().default("REQUESTER"),
+  role: text("role").notNull().default("REQUESTER"),
   department: text("department"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const projects = pgTable("projects", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
   title: text("title").notNull(),
-  type: projectTypeEnum("type").notNull(),
+  description: text("description"),
+  type: text("type").notNull(),
   category: text("category"),
-  methodology: methodologyEnum("methodology").notNull(),
-  status: projectStatusEnum("status").notNull().default("Initiative Submitted"),
-  ownerId: varchar("owner_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  methodology: text("methodology").notNull(),
+  status: text("status").notNull().default("Initiative Submitted"),
+  priority: text("priority").notNull().default("MEDIUM"),
+  teamMembers: text("team_members").array(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const documents = pgTable("documents", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  type: documentTypeEnum("type").notNull(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
   filename: text("filename").notNull(),
   storageKey: text("storage_key").notNull(),
+  lifecycleStep: text("lifecycle_step"),
   version: integer("version").notNull().default(1),
-  status: documentStatusEnum("status").notNull().default("DRAFT"),
-  createdById: varchar("created_by_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  status: text("status").notNull().default("DRAFT"), // DRAFT, IN_REVIEW, APPROVED, REJECTED, DELETED
+  priority: text("priority").notNull().default("MEDIUM"),
+  createdById: uuid("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const approvalRounds = pgTable("approval_rounds", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
-  mode: approvalModeEnum("mode").notNull().default("SEQUENTIAL"),
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull().default("SEQUENTIAL"),
   orderIndex: integer("order_index").notNull().default(0),
   status: text("status").notNull().default("PENDING"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  priority: text("priority").notNull().default("MEDIUM"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const approvers = pgTable("approvers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  roundId: varchar("round_id").notNull().references(() => approvalRounds.id, { onDelete: "cascade" }),
-  userId: varchar("user_id").references(() => users.id),
+  id: uuid("id").primaryKey().defaultRandom(),
+  roundId: uuid("round_id").notNull().references(() => approvalRounds.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id),
   email: text("email").notNull(),
   orderIndex: integer("order_index").notNull().default(0),
   mustSign: boolean("must_sign").notNull().default(true),
-  status: approverStatusEnum("status").notNull().default("PENDING"),
-  signedAt: timestamp("signed_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  status: text("status").notNull().default("PENDING"),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const signatureEnvelopes = pgTable("signature_envelopes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  docusealTemplateId: text("docuseal_template_id"),
+  docusealSubmissionId: text("docuseal_submission_id"),
   docusealEnvelopeId: text("docuseal_envelope_id"),
   docusealUrl: text("docuseal_url"),
-  status: envelopeStatusEnum("status").notNull().default("CREATED"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  completedAt: timestamp("completed_at"),
+  docusealEditUrl: text("docuseal_edit_url"),
+  status: text("status").notNull().default("CREATED"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
 export const comments = pgTable("comments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  documentId: varchar("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
-  authorId: varchar("author_id").notNull().references(() => users.id),
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => users.id),
   body: text("body").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  attachmentPath: text("attachment_path"),
+  attachmentName: text("attachment_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const statusHistory = pgTable("status_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id").primaryKey().defaultRandom(),
   entityType: text("entity_type").notNull(),
-  entityId: varchar("entity_id").notNull(),
+  entityId: text("entity_id").notNull(),
   fromStatus: text("from_status"),
   toStatus: text("to_status").notNull(),
-  actorId: varchar("actor_id").references(() => users.id),
+  actorId: uuid("actor_id").references(() => users.id),
   note: text("note"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const webhookEvents = pgTable("webhook_events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id").primaryKey().defaultRandom(),
   provider: text("provider").notNull().default("docuseal"),
   eventType: text("event_type").notNull(),
   payloadJson: text("payload_json").notNull(),
   status: text("status").notNull().default("PENDING"),
-  receivedAt: timestamp("received_at").notNull().defaultNow(),
-  processedAt: timestamp("processed_at"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
 });
 
 export const auditLogs = pgTable("audit_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  actorId: varchar("actor_id").references(() => users.id),
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: uuid("actor_id").references(() => users.id),
   action: text("action").notNull(),
   targetType: text("target_type").notNull(),
-  targetId: varchar("target_id").notNull(),
+  targetId: text("target_id").notNull(),
   metadata: text("metadata"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const projectStatusRequests = pgTable("project_status_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  priority: text("priority").notNull().default("MEDIUM"),
+  requestedBy: uuid("requested_by").notNull().references(() => users.id),
+  status: text("status").notNull().default("PENDING"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+export const projectApprovers = pgTable("project_approvers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  email: text("email").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+  mode: text("mode").notNull().default("SEQUENTIAL"),
+  priority: text("priority").notNull().default("MEDIUM"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const projectStatusApprovals = pgTable("project_status_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requestId: uuid("request_id").notNull().references(() => projectStatusRequests.id, { onDelete: "cascade" }),
+  approverId: uuid("approver_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("PENDING"),
+  comment: text("comment"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -144,10 +169,14 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   updatedAt: true,
 });
 
+export const insertProjectRequestSchema = insertProjectSchema.omit({
+  ownerId: true,
+  code: true,
+});
+
 export const insertDocumentSchema = createInsertSchema(documents).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 });
 
 export const insertApprovalRoundSchema = createInsertSchema(approvalRounds).omit({
@@ -164,6 +193,8 @@ export const insertCommentSchema = createInsertSchema(comments).omit({
   id: true,
   createdAt: true,
 });
+
+
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -188,3 +219,7 @@ export type SignatureEnvelope = typeof signatureEnvelopes.$inferSelect;
 export type StatusHistory = typeof statusHistory.$inferSelect;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type ProjectStatusRequest = typeof projectStatusRequests.$inferSelect;
+export type ProjectApprover = typeof projectApprovers.$inferSelect;
+export type ProjectStatusApproval = typeof projectStatusApprovals.$inferSelect;
+

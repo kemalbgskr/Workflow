@@ -2,42 +2,60 @@ import { FileText, Users, Clock, CheckCircle } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import ProjectCard from "@/components/ProjectCard";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Search } from "lucide-react";
+import { useLocation } from "wouter";
+import NewInitiativeDialog from "@/components/NewInitiativeDialog";
+import EditProjectDialog from "@/components/EditProjectDialog";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+// API fetching functions
+const getProjectsWithOwner = async () => {
+  const response = await fetch('/api/projects/with-owner');
+  if (!response.ok) {
+    throw new Error('Failed to fetch projects');
+  }
+  return response.json();
+};
+
+const getDashboardStats = async () => {
+  const response = await fetch('/api/dashboard/stats');
+  if (!response.ok) {
+    throw new Error('Failed to fetch stats');
+  }
+  return response.json();
+};
 
 export default function Dashboard() {
-  //todo: remove mock functionality
-  const mockProjects = [
-    {
-      id: "1",
-      code: "PRJ-2024-001",
-      title: "Core Banking System Upgrade",
-      type: "Project" as const,
-      methodology: "Waterfall" as const,
-      status: "Kick Off",
-      owner: { name: "John Doe", initials: "JD" },
-      documentCount: 8,
-    },
-    {
-      id: "2",
-      code: "PRJ-2024-002",
-      title: "Mobile App Enhancement",
-      type: "Project" as const,
-      methodology: "Agile" as const,
-      status: "ARF",
-      owner: { name: "Jane Smith", initials: "JS" },
-      documentCount: 12,
-    },
-    {
-      id: "3",
-      code: "NP-2024-015",
-      title: "Security Audit Q1",
-      type: "Non-Project" as const,
-      methodology: "Agile" as const,
-      status: "Go Live",
-      owner: { name: "Mike Johnson", initials: "MJ" },
-      documentCount: 5,
-    },
-  ];
+  const [, setLocation] = useLocation();
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const queryClient = useQueryClient();
+
+  const { data: projects, isLoading: isLoadingProjects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: getProjectsWithOwner,
+    refetchOnWindowFocus: true,
+    staleTime: 0
+  });
+
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['stats'],
+    queryFn: getDashboardStats,
+    refetchOnWindowFocus: true,
+    staleTime: 0
+  });
+
+  const handleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+  };
+  
+
 
   return (
     <div className="p-8 space-y-8">
@@ -49,51 +67,85 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="My Requests"
-          value="12"
+          value={(stats?.myRequests || 0).toString()}
           icon={FileText}
           accentColor="teal"
-          trend={{ value: "3 this week", isPositive: true }}
+          isLoading={isLoadingStats}
         />
         <StatCard
           title="Pending Approvals"
-          value="8"
+          value={(stats?.pendingApprovals || 0).toString()}
           icon={Clock}
           accentColor="warning"
-          trend={{ value: "2 urgent", isPositive: false }}
+          isLoading={isLoadingStats}
         />
         <StatCard
           title="Active Projects"
-          value="24"
+          value={(stats?.activeProjects || 0).toString()}
           icon={Users}
           accentColor="orange"
+          isLoading={isLoadingStats}
         />
         <StatCard
           title="Completed"
-          value="156"
+          value={(stats?.completed || 0).toString()}
           icon={CheckCircle}
           accentColor="success"
-          trend={{ value: "12 this month", isPositive: true }}
+          isLoading={isLoadingStats}
         />
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Recent Projects</h2>
-          <Button data-testid="button-new-initiative">
-            <Plus className="h-4 w-4 mr-2" />
-            New Initiative
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search projects..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button 
+              data-testid="button-new-initiative"
+              onClick={() => setShowNewDialog(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Initiative
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockProjects.map((project) => (
+          {(projects || [])
+            .filter((project: any) => project.title.toLowerCase().includes(searchTerm.toLowerCase()))
+            .map((project: any) => (
             <ProjectCard
               key={project.id}
               {...project}
-              onViewClick={() => console.log(`View project ${project.id}`)}
+              onViewClick={() => setLocation(`/projects/${project.id}`)}
+              onEdit={() => {
+                setEditingProject(project);
+                setShowEditDialog(true);
+              }}
             />
           ))}
         </div>
       </div>
+      
+      <NewInitiativeDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+        onSuccess={handleSuccess}
+      />
+      
+      <EditProjectDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={handleSuccess}
+        project={editingProject}
+      />
     </div>
   );
 }

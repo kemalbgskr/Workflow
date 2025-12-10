@@ -1,0 +1,6 @@
+-- Add priority columns to tables
+ALTER TABLE projects ADD COLUMN priority TEXT NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE documents ADD COLUMN priority TEXT NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE approval_rounds ADD COLUMN priority TEXT NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE project_status_requests ADD COLUMN priority TEXT NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE project_approvers ADD COLUMN priority TEXT NOT NULL DEFAULT 'MEDIUM';
