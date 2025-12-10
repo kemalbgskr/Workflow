@@ -15,7 +15,8 @@
     "setup-and-run": "node setup-and-run.js",
     "quick-start": "node start-app.js",
     "migrate": "tsx migrate.ts",
-    "test-docuseal": "node test-docuseal.js"
+    "test-docuseal": "node test-docuseal.js",
+    "test": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.947.0",
@@ -117,7 +118,8 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
     "typescript": "5.6.3",
-    "vite": "^5.4.20"
+    "vite": "^5.4.20",
+    "vitest": "^4.0.15"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
