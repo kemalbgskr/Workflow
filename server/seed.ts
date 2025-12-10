@@ -1,11 +1,18 @@
 import { db } from './db';
-import { users, projects, documents, approvers, approvalRounds, comments } from '@shared/schema';
+import { users, projects, documents, approvers, approvalRounds, comments, auditLogs, projectStatusRequests, projectStatusApprovals, projectApprovers, signatureEnvelopes, statusHistory, webhookEvents } from '@shared/schema';
 
 export async function seedDatabase() {
   console.log('🌱 Seeding database with dummy data...');
 
   try {
     console.log('🗑️ Clearing existing data...');
+    await db.delete(projectStatusApprovals);
+    await db.delete(projectStatusRequests);
+    await db.delete(projectApprovers);
+    await db.delete(signatureEnvelopes);
+    await db.delete(auditLogs);
+    await db.delete(statusHistory);
+    await db.delete(webhookEvents);
     await db.delete(comments);
     await db.delete(approvers);
     await db.delete(approvalRounds);

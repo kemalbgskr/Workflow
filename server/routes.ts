@@ -344,14 +344,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).id;
       const userRole = (req.user as any).role;
-      console.log('Fetching status approvals for user:', userId, 'role:', userRole);
-      
-      // Admin can see all pending status approvals, others only see their own
       const approvals = userRole === 'ADMIN'
         ? await storage.getAllPendingStatusApprovals()
         : await storage.getPendingStatusApprovals(userId);
       
-      console.log('Found status approvals:', approvals.length);
       res.json(approvals);
     } catch (error: any) {
       console.error('Error fetching status approvals:', error);
@@ -743,14 +739,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/documents/:id/approvers", async (req, res) => {
-    console.log('=== POST /api/documents/:id/approvers CALLED ===');
-    console.log('Document ID:', req.params.id);
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('User authenticated:', req.isAuthenticated());
-    console.log('User info:', req.user ? { id: (req.user as any).id, email: (req.user as any).email } : 'No user');
-    
+
     if (!req.isAuthenticated()) {
-      console.log('User not authenticated, returning 401');
+
       return res.status(401).json({ error: "Not authenticated" });
     }
 
@@ -764,35 +755,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvalSteps = []
       } = req.body;
 
-      console.log('Parsed request data:', { 
-        documentId: id, 
-        approverIds, 
-        approverIdsType: typeof approverIds,
-        approverIdsLength: Array.isArray(approverIds) ? approverIds.length : 'not array',
-        useDocuSeal, 
-        approvalMode, 
-        approvalSteps, 
-        priority 
-      });
+
 
       // Enhanced input validation
       if (!id || typeof id !== 'string') {
-        console.log('Invalid document ID:', id);
+
         return res.status(400).json({ error: "Valid document ID is required" });
       }
 
       if (!approverIds) {
-        console.log('Missing approverIds');
+
         return res.status(400).json({ error: "Approvers field is required" });
       }
 
       if (!Array.isArray(approverIds)) {
-        console.log('approverIds is not an array:', typeof approverIds, approverIds);
+
         return res.status(400).json({ error: "Approvers must be an array" });
       }
 
       if (approverIds.length === 0) {
-        console.log('Empty approverIds array');
+
         return res.status(400).json({ error: "At least one approver is required" });
       }
 
@@ -801,43 +783,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (let i = 0; i < approverIds.length; i++) {
         const approverId = approverIds[i];
         if (!approverId || typeof approverId !== 'string') {
-          console.log(`Invalid approver ID at index ${i}:`, approverId);
           return res.status(400).json({ error: `Invalid approver ID at position ${i + 1}` });
         }
         if (!uuidRegex.test(approverId)) {
-          console.log(`Approver ID at index ${i} is not a valid UUID:`, approverId);
           return res.status(400).json({ error: `Approver ID at position ${i + 1} is not a valid UUID: ${approverId}` });
         }
       }
 
       const userId = (req.user as any).id;
-      console.log('User ID:', userId);
       
-      console.log('Calling storage.configureApprovers...');
       await storage.configureApprovers(id, approverIds, approvalMode, approvalSteps, userId, priority);
-      console.log('storage.configureApprovers completed successfully');
 
       // If DocuSeal is enabled, create signature envelope
       if (useDocuSeal) {
-        console.log('DocuSeal enabled, creating envelope...');
         const document = await storage.getDocumentById(id);
         
         if (!document) {
-          console.log('Document not found for DocuSeal');
           return res.status(404).json({ error: "Document not found" });
         }
         
         const approvers = await storage.getDocumentApprovers(id);
-        console.log('Retrieved approvers for DocuSeal:', approvers.length);
         
         if (approvers.length > 0) {
           const envelope = await storage.createDocuSealEnvelope(document, approvers);
-          console.log('DocuSeal envelope created successfully');
           return res.json({ success: true, envelope, approvalMode });
         }
       }
       
-      console.log('Returning success response');
       res.json({ success: true, approvalMode });
     } catch (error: any) {
       console.error("=== CONFIGURE APPROVERS ERROR ===");
@@ -999,9 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/documents/:id/approvers", async (req, res) => {
     try {
-      console.log('GET /api/documents/:id/approvers - Document ID:', req.params.id);
       const approvers = await storage.getDocumentApprovers(req.params.id);
-      console.log('Retrieved approvers:', approvers.length);
       res.json(approvers);
     } catch (error: any) {
       console.error('Error fetching document approvers:', error);
@@ -1012,9 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/documents/:id/approval-mode", async (req, res) => {
     try {
-      console.log('GET /api/documents/:id/approval-mode - Document ID:', req.params.id);
       const mode = await storage.getApprovalMode(req.params.id);
-      console.log('Retrieved approval mode:', mode);
       res.json({ mode });
     } catch (error: any) {
       console.error('Error fetching approval mode:', error);
