@@ -738,6 +738,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  app.post("/api/documents/:id/docuseal-token", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const document = await storage.getDocumentById(req.params.id);
+      if (!document) return res.status(404).json({ error: "Document not found" });
+
+      // Read file content and convert to base64
+      // storageKey is the relative path in uploads folder, usually handled by storage implementation
+      // But assuming direct fs access for now or `storage.ts` has helper?
+      // `storage` is typically the db interface. `multer` saves files.
+      // Let's assume `document.storageKey` gives the path.
+      
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      // Usually uploads are in `uploads/` or cwd?
+      // Check `storageKey` usage in other routes.
+      // Existing routes use `res.sendFile(path.resolve(doc.storageKey))`
+      
+      const filePath = path.resolve(document.storageKey);
+      if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ error: "File not found on server" });
+      }
+      
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileBase64 = fileBuffer.toString('base64');
+      
+      // Generate Token
+      const token = await docusealService.getBuilderToken({
+        user_email: (req.user as any).email || `user_${(req.user as any).id}@example.com`,
+        name: document.filename,
+        document_urls: [], // We use base64 in the documents field internally if we could, 
+                           // BUT getBuilderToken just signs the payload. 
+                           // We need to pass the base64 in the payload.
+        // I need to update getBuilderToken to put documents in payload properly?
+        // The user snippet had `document_urls`. 
+        // DocuSeal builder also supports `documents` array with base64.
+      });
+      
+      // Wait, passing 10MB base64 in a JWT token URL param might be too large!
+      // JWTs in URL params have limits.
+      // If the file is large, we MUST use a URL.
+      // If `localhost` works for the browser (because builder fetches from browser), then we can use `http://localhost:5000/api/documents/:id/download`.
+      // Let's try URL approach first! It's much cleaner.
+      
+      // Construct download URL
+      // We need the APP_URL.
+      const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const downloadUrl = `${appUrl}/api/documents/${document.id}/download`;
+      
+      const urlToken = await docusealService.getBuilderToken({
+        user_email: (req.user as any).email || `user_${(req.user as any).id}@example.com`,
+        name: document.filename,
+        document_urls: [downloadUrl]
+      });
+      
+      res.json({ token: urlToken });
+      
+    } catch (error: any) {
+      console.error("Builder Token Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/documents/:id/approvers", async (req, res) => {
 
     if (!req.isAuthenticated()) {

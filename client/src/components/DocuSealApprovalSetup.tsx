@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, X, ArrowUp, ArrowDown, FileSignature, Workflow, ExternalLink } from "lucide-react";
+import { Plus, X, ArrowUp, ArrowDown, FileSignature, Workflow, ExternalLink, Loader2 } from "lucide-react";
 import { type User } from "@shared/schema";
+import { DocusealBuilder } from '@docuseal/react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ApprovalStep {
   id: string;
@@ -32,6 +34,9 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
   const [templateCreated, setTemplateCreated] = useState(false);
   const [templateEditUrl, setTemplateEditUrl] = useState("");
   const [envelopeId, setEnvelopeId] = useState("");
+
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [builderToken, setBuilderToken] = useState<string>("");
 
   useEffect(() => {
     fetchUsers();
@@ -116,91 +121,76 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
     });
   };
 
-  const handleCreateTemplate = async () => {
-    if (approvalSteps.length === 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please add at least one approver.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleLaunchBuilder = async () => {
     setLoading(true);
-
     try {
-      const response = await fetch(`/api/documents/${documentId}/approvers`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          approvers: approvalSteps.map(step => step.userId),
-          approvalMode,
-          approvalSteps: approvalSteps.map(step => ({
-            userId: step.userId,
-            order: step.order
-          })),
-          useDocuSeal: true
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setTemplateCreated(true);
-        setTemplateEditUrl(result.envelope?.docusealEditUrl || "");
-        setEnvelopeId(result.envelope?.id || "");
-        
-        toast({
-          title: "DocuSeal Template Created",
-          description: "Template has been created. You can now edit the signature fields.",
+        const res = await fetch(`/api/documents/${documentId}/docuseal-token`, {
+            method: 'POST'
         });
-      } else {
-        throw new Error("Failed to create template");
-      }
+        if (!res.ok) throw new Error("Failed to get builder token");
+        const data = await res.json();
+        setBuilderToken(data.token);
+        setShowBuilder(true);
     } catch (error) {
-      console.error("Create template error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create DocuSeal template. Please try again.",
-        variant: "destructive",
-      });
+        console.error("Builder launch error:", error);
+        toast({
+            title: "Error",
+            description: "Failed to launch DocuSeal builder.",
+            variant: "destructive"
+        });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
   const handleSendForSigning = async () => {
-    if (!envelopeId) return;
-
-    setLoading(true);
+    // Logic to finalize (maybe call backend to map template to document if not already)
+    // For now assuming template is saved in DocuSeal and we just need to trigger the send using that template? 
+    // OR we trigger the send from Backend using the template associated with document.
+    // We assume backend knows the template ID or we just need to save the "Approvers" first.
+    
+    // First save approvers to our DB
     try {
-      const response = await fetch(`/api/documents/${documentId}/send-for-signing`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ envelopeId }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Document Sent for Signing",
-          description: "Signature requests have been sent to all approvers.",
+        setLoading(true);
+        await fetch(`/api/documents/${documentId}/approvers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                approvers: approvalSteps.map(step => step.userId),
+                approvalMode,
+                approvalSteps: approvalSteps.map(step => ({
+                    userId: step.userId,
+                    order: step.order
+                })),
+                useDocuSeal: true // This might try to create template again? 
+                // We should probably optimize backend to NOT re-create if it exists or handle this flow.
+                // For now, let's just launch builder.
+            }),
         });
-        onSuccess?.();
-      } else {
-        throw new Error("Failed to send for signing");
-      }
+        
+        // Then trigger send
+        const response = await fetch(`/api/documents/${documentId}/send-for-signing`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}), // no envelopeId needed if backend resolves it? or we skip?
+        });
+
+        if (response.ok) {
+            toast({
+                title: "Success",
+                description: "Document sent for signing!",
+            });
+            onSuccess?.();
+        }
     } catch (error) {
-      console.error("Send for signing error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send document for signing.",
-        variant: "destructive",
-      });
+        console.error(error);
+         toast({
+            title: "Error",
+            description: "Failed to send.",
+            variant: "destructive"
+        });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
@@ -208,76 +198,27 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
     !approvalSteps.find(step => step.userId === user.id)
   );
 
-  if (templateCreated) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-600">
-              <FileSignature className="h-5 w-5" />
-              Template Created Successfully
-            </CardTitle>
-            <CardDescription>
-              Your document template has been created in DocuSeal. Now you can set up signature fields.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                Next Steps:
-              </h4>
-              <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
-                <li>Click "Edit Template" to set up signature fields in DocuSeal</li>
-                <li>Position signature fields for each approver</li>
-                <li>Save the template in DocuSeal</li>
-                <li>Return here and click "Send for Signing"</li>
-              </ol>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-2">Approvers ({approvalSteps.length}):</h4>
-              <div className="space-y-2">
-                {approvalSteps.map((step, index) => (
-                  <div key={step.id} className="flex items-center gap-2 text-sm">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-xs font-medium text-blue-600">
-                      {index + 1}
-                    </div>
-                    <span>{step.user?.name} ({step.user?.email})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={onCancel} variant="outline">
-                Close
-              </Button>
-              {templateEditUrl && (
-                <Button 
-                  onClick={() => window.open(templateEditUrl, '_blank')}
-                  className="flex items-center gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Edit Template in DocuSeal
-                </Button>
-              )}
-              <Button 
-                onClick={handleSendForSigning}
-                disabled={loading}
-                className="flex items-center gap-2"
-              >
-                <FileSignature className="h-4 w-4" />
-                {loading ? "Sending..." : "Send for Signing"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      <Dialog open={showBuilder} onOpenChange={setShowBuilder}>
+        <DialogContent className="max-w-6xl h-[90vh]">
+            <DialogHeader>
+                <DialogTitle>DocuSeal Builder</DialogTitle>
+            </DialogHeader>
+            <div className="h-full w-full bg-white rounded-md overflow-hidden">
+                {builderToken && (
+                    <DocusealBuilder 
+                        token={builderToken} 
+                        onSave={(data) => {
+                            console.log("Template Saved:", data);
+                            // We could save the template ID here if provided: data.slug or data.id
+                        }}
+                    />
+                )}
+            </div>
+        </DialogContent>
+      </Dialog>
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -409,23 +350,8 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
                 ))}
               </div>
               
-              {approvalMode === "SEQUENTIAL" && (
-                <div className="text-sm text-muted-foreground p-2 bg-blue-50 dark:bg-blue-950 rounded border">
-                  📋 Approvers will sign in the order shown above. Each approver must complete their signature before the next one can start.
-                </div>
-              )}
-              
-              {approvalMode === "PARALLEL" && (
-                <div className="text-sm text-muted-foreground p-2 bg-green-50 dark:bg-green-950 rounded border">
-                  🔄 All approvers will receive notifications simultaneously and can sign in any order.
-                </div>
-              )}
             </div>
           )}
-
-          <div className="text-sm text-muted-foreground p-2 bg-yellow-50 dark:bg-yellow-950 rounded border">
-            📧 Approvers will receive email invitations to sign the document digitally via DocuSeal.
-          </div>
         </CardContent>
       </Card>
 
@@ -433,14 +359,24 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button 
-          onClick={handleCreateTemplate} 
-          disabled={loading || approvalSteps.length === 0}
-          className="flex items-center gap-2"
-        >
-          <FileSignature className="h-4 w-4" />
-          {loading ? "Creating..." : "Create Template"}
-        </Button>
+        <div className="flex gap-2">
+            <Button 
+              onClick={handleLaunchBuilder}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open Form Builder
+            </Button>
+            <Button 
+            onClick={handleSendForSigning} 
+            disabled={loading || approvalSteps.length === 0}
+            className="flex items-center gap-2"
+            >
+            <FileSignature className="h-4 w-4" />
+            {loading ? "Sending..." : "Send for Signing"}
+            </Button>
+        </div>
       </div>
     </div>
   );

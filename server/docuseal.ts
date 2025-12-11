@@ -2,24 +2,20 @@
 // We'll use fetch API instead for better compatibility
 import fs from 'fs';
 import { FormData } from 'formdata-node';
+import jwt from 'jsonwebtoken';
 
-const DOCUSEAL_API_BASE = process.env.DOCUSEAL_API_BASE || 'http://168.110.206.144:3000';
-const DOCUSEAL_WEB_BASE = process.env.DOCUSEAL_WEB_BASE || 'http://168.110.206.144:3000';
+const DOCUSEAL_API_BASE = process.env.DOCUSEAL_URL || 'http://168.110.206.144:3000';
+const DOCUSEAL_WEB_BASE = process.env.DOCUSEAL_URL || 'http://168.110.206.144';
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY;
 
 if (!DOCUSEAL_API_KEY) {
   console.warn('DOCUSEAL_API_KEY not set. Docuseal integration will not work.');
 }
 
-const createHeaders = (contentType = 'application/json') => ({
-  'Authorization': `Bearer ${DOCUSEAL_API_KEY}`,
-  'Content-Type': contentType
-});
-
 export interface DocusealRecipient {
   email: string;
   name: string;
-  role: 'signer' | 'viewer';
+  role: 'signer' | 'viewer' | 'cc';
   orderIndex?: number;
 }
 
@@ -55,20 +51,31 @@ export class DocusealService {
       
       const formData = new FormData();
       
+      // Handle file input
       if (params.fileBuffer) {
-        formData.append('files[]', params.fileBuffer, params.filename);
+        // Convert Buffer to Blob for formdata-node
+        // @ts-ignore - Buffer is compatible with BlobPart in Node environment despite type mismatch
+        const blob = new Blob([params.fileBuffer], { type: 'application/pdf' });
+        formData.append('documents[0][file]', blob, params.filename);
       }
-
+      
+      // If we had a URL-based file upload, we'd handle it here, but DocuSeal primarily takes file uploads for basic API usage
+      // or "documents" array with name/file.
+      
       formData.append('name', params.title);
       
-      // Add submitters according to DocuSeal API docs
-      params.recipients.forEach((recipient, index) => {
-        formData.append(`submitters[][name]`, recipient.name);
-        formData.append(`submitters[][role]`, `Signer ${index + 1}`);
-      });
-
+      // Logic for documents from PDF: 
+      // POST /api/templates/pdf 
+      // documentation says: create a template from PDF
+      
+      // Let's stick to /api/templates and uploading the file.
+      // Based on docs: 
+      // curl -X POST https://api.docuseal.com/templates \
+      //   -H "X-Auth-Token: <token>" \
+      //   -F "documents[0][file]=@document.pdf" \
+      //   -F "documents[0][name]=Agreement"
+      
       console.log('Sending request to:', `${DOCUSEAL_API_BASE}/api/templates`);
-      console.log('With headers:', { 'X-Auth-Token': DOCUSEAL_API_KEY });
 
       const response = await fetch(`${DOCUSEAL_API_BASE}/api/templates`, {
         method: 'POST',
@@ -89,14 +96,40 @@ export class DocusealService {
       const result = await response.json();
       console.log('DocuSeal template created:', result);
       
+      // Handle array response (if batch creation) or single object
+      const templateData = Array.isArray(result) ? result[0] : result;
+      
       return {
-        templateId: result.id.toString(),
-        editUrl: `${DOCUSEAL_WEB_BASE}/templates/${result.id}/edit`
+        templateId: templateData.id.toString(),
+        editUrl: `${DOCUSEAL_WEB_BASE}/templates/${templateData.id}/edit`
       };
     } catch (error: any) {
       console.error('DocuSeal createTemplate error:', error.message);
+      if (error.cause) console.error('DocuSeal createTemplate cause:', error.cause);
       throw new Error(`Failed to create template: ${error.message}`);
     }
+  }
+
+  async getBuilderToken(params: {
+    user_email: string;
+    integration_email?: string;
+    name: string;
+    document_urls?: string[];
+    document_b64?: string; // Optional if supported by integration
+  }): Promise<string> {
+    if (!DOCUSEAL_API_KEY) {
+      throw new Error('DocuSeal API key not configured');
+    }
+
+    const payload = {
+      user_email: params.user_email,
+      integration_email: params.integration_email,
+      name: params.name,
+      document_urls: params.document_urls,
+      // Create template mode
+    };
+
+    return jwt.sign(payload, DOCUSEAL_API_KEY);
   }
 
   async createSubmission(templateId: string, submitters: DocusealRecipient[]): Promise<{ submissionId: string; url: string }> {

@@ -2412,16 +2412,28 @@ export class DatabaseStorage implements IStorage {
 
       // Step 1: Create template in DocuSeal
       console.log("Calling docusealService.createTemplate...");
-      const template = await docusealService.createTemplate({
-        fileBuffer,
-        filename: document.filename,
-        title: `Approval Required: ${document.filename}`,
-        recipients,
-        sequential: true,
-      });
+      let template;
+      try {
+        template = await docusealService.createTemplate({
+          fileBuffer,
+          filename: document.filename,
+          title: `Approval Required: ${document.filename}`,
+          recipients,
+          sequential: true,
+        });
+        console.log("DocuSeal template created successfully:", template);
+      } catch (docusealError: any) {
+        console.error("XXX DOCUSEAL SERVICE FAILED XXX");
+        console.error("Error Message:", docusealError.message);
+        console.error("Error Stack:", docusealError.stack);
+        if (docusealError.cause) console.error("Error Cause:", docusealError.cause);
+        throw new Error(`Failed to create DocuSeal template: ${docusealError.message}`);
+      }
+
       console.log("Template created successfully:", template);
 
       // Save template info to database
+      console.log("Storing envelope record in DB...");
       const [signatureEnvelope] = await db
         .insert(signatureEnvelopes)
         .values({
