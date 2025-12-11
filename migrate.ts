@@ -1,17 +1,14 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
+import { PGlite } from '@electric-sql/pglite';
 import 'dotenv/config';
 
 async function runMigrations() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not set in .env file');
-  }
+  console.log('⏳ Running database migrations with PGlite...');
 
-  console.log('⏳ Running database migrations...');
-
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const db = drizzle(pool);
+  // Ensure we use the exact same path as server/db.ts
+  const client = new PGlite('./.pglite');
+  const db = drizzle(client);
 
   try {
     await migrate(db, { migrationsFolder: './migrations' });
@@ -20,9 +17,12 @@ async function runMigrations() {
     console.error('❌ Migration failed:', error);
     process.exit(1);
   } finally {
-    await pool.end();
+    // PGlite client doesn't need explicit end() in same way, but let's be safe if API supports it
+    // await client.close(); // PGlite might not have close/end, it's embedded.
     console.log('🏁 Migration script finished.');
   }
 }
+
+runMigrations();
 
 runMigrations();

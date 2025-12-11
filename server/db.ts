@@ -1,14 +1,10 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/pglite';
+import { PGlite } from '@electric-sql/pglite';
 import * as schema from "@shared/schema";
 import 'dotenv/config';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not set in .env file");
-}
+// Use PGlite for local postgres without installation
+// Data stored in .pglite folder
+const client = new PGlite('./.pglite');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-export const db = drizzle(pool, { schema });
+export const db = drizzle(client, { schema });

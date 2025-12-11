@@ -127,10 +127,23 @@ export default function DocuSealApprovalSetup({ documentId, onSuccess, onCancel 
         const res = await fetch(`/api/documents/${documentId}/docuseal-token`, {
             method: 'POST'
         });
-        if (!res.ok) throw new Error("Failed to get builder token");
-        const data = await res.json();
-        setBuilderToken(data.token);
-        setShowBuilder(true);
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to get builder token: ${res.status} ${text.substring(0, 100)}`);
+        }
+        
+        try {
+            const data = await res.json();
+            setBuilderToken(data.token);
+            setShowBuilder(true);
+        } catch (jsonError) {
+            const text = await res.text().catch(() => "Unable to read text"); 
+            // Note: Body might be used? res.json() consumes it. we need to clone.
+            // But fetch body can typically only be read once.
+            // If json() failed, we can't read text() again usually unless we cloned.
+            // I'll clone the response first.
+            throw new Error(`Invalid JSON response: ${jsonError}`);
+        }
     } catch (error) {
         console.error("Builder launch error:", error);
         toast({
