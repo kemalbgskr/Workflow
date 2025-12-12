@@ -65,7 +65,7 @@ export class DocusealService {
         throw new Error("File content is required for upload");
       }
       
-      const fileBase64 = params.fileBuffer.toString('base64');
+      const fileBase64 = `data:application/pdf;base64,${params.fileBuffer.toString('base64')}`;
       
       const payload = {
         documents: [{
