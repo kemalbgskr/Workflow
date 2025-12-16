@@ -731,6 +731,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       });
 
+      // Check if this is an initiation document (FS, BRD, etc.) and auto-create approval request
+      const initiationDocTypes = ['FS', 'BRD', 'PROJECT_CHARTER', 'PROPOSAL'];
+      const initiationSteps = ['Initiative Submitted', 'Demand Prioritized', 'Initiative Approved'];
+      
+      if (initiationDocTypes.includes(documentType) || initiationSteps.includes(lifecycleStep)) {
+        // Get project approvers
+        const approvers = await storage.getProjectApprovers(projectId);
+        
+        if (approvers.length > 0) {
+          // Get current project to get current status
+          const project = await storage.getProjectById(projectId);
+          
+          if (project) {
+            // Create approval request for project initiation
+            const requestId = await storage.createStatusChangeRequest(
+              projectId,
+              project.status,
+              'Initiative Approved', // Target status after approval
+              userId
+            );
+            
+            console.log(`✅ Auto-created approval request ${requestId} for project ${projectId}`);
+            
+            // Log approval request creation
+            await storage.insertAuditLog({
+              actorId: userId,
+              action: "Approval Request Created",
+              targetType: "project",
+              targetId: projectId,
+              metadata: JSON.stringify({
+                requestId,
+                documentId: document.id,
+                documentType,
+                lifecycleStep,
+                reason: "Auto-created after document upload"
+              })
+            });
+          }
+        }
+      }
+
       res.status(201).json(document);
     } catch (error: any) {
       console.error("Error uploading document:", error);

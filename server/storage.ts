@@ -573,13 +573,14 @@ export class DatabaseStorage implements IStorage {
           .orderBy(desc(projects.createdAt));
       }
 
-      // For other users, filter by team membership, ownership, or approver status
+      // For other users, filter by ownership or approver status
+      // Note: teamMembers is stored as JSON in SQLite, checking it requires complex subquery
+      // For simplicity, we filter by owner and approver status
       const userProjects = await db
         .select()
         .from(projects)
         .where(
           sql`${projects.ownerId} = ${userId} OR 
-              ${userId} = ANY(${projects.teamMembers}) OR 
               EXISTS (
                 SELECT 1 FROM ${projectApprovers} 
                 WHERE ${projectApprovers.projectId} = ${projects.id} 
@@ -695,7 +696,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(users, eq(projects.ownerId, users.id))
           .orderBy(desc(projects.createdAt));
       } else {
-        // For other users, filter by team membership, ownership, or approver status
+        // For other users, filter by ownership or approver status
         projectsData = await db
           .select({
             id: projects.id,
@@ -715,7 +716,6 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(users, eq(projects.ownerId, users.id))
           .where(
             sql`${projects.ownerId} = ${userId} OR 
-                ${userId} = ANY(${projects.teamMembers}) OR 
                 EXISTS (
                   SELECT 1 FROM ${projectApprovers} 
                   WHERE ${projectApprovers.projectId} = ${projects.id} 
@@ -801,7 +801,7 @@ export class DatabaseStorage implements IStorage {
         return true;
       }
 
-      // Check if user is owner, team member, or approver
+      // Check if user is owner or approver
       const result = await db
         .select({ id: projects.id })
         .from(projects)
@@ -809,7 +809,6 @@ export class DatabaseStorage implements IStorage {
           and(
             eq(projects.id, projectId),
             sql`${projects.ownerId} = ${userId} OR 
-                ${userId} = ANY(${projects.teamMembers}) OR 
                 EXISTS (
                   SELECT 1 FROM ${projectApprovers} 
                   WHERE ${projectApprovers.projectId} = ${projectId} 

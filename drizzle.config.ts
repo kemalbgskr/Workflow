@@ -8,9 +8,9 @@ if (!process.env.DATABASE_URL) {
 export default defineConfig({
   out: "./migrations",
   schema: "./shared/schema.ts",
-  dialect: "postgresql", // Keep this as postgresql for drizzle-kit
+  dialect: "sqlite", 
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: "sqlite.db",
   },
   verbose: true,
   strict: true,
